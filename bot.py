@@ -4,11 +4,12 @@ from telegram.ext import Updater, CommandHandler, CallbackContext
 import logging
 import threading
 import time
+import os
 
 # Replace 'YOUR_TELEGRAM_BOT_TOKEN' with the token you received from BotFather
-TELEGRAM_BOT_TOKEN = '7464935338:AAFIYTzrtJqMvsm7m1x6HUxGJhsf9fvEMLs'
-PING_URL = 'https://just-ltho.onrender.com'  # Replace with the URL you want to ping
-PING_INTERVAL = 60  # Interval in seconds (e.g., 300 seconds = 5 minutes)
+TELEGRAM_BOT_TOKEN = os.getenv('7464935338:AAFIYTzrtJqMvsm7m1x6HUxGJhsf9fvEMLs')
+PING_URL = os.getenv('https://just-ltho.onrender.com')  # URL to be pinged
+PING_INTERVAL = int(os.getenv('PING_INTERVAL', 60))  # Interval in seconds (default 300 seconds = 5 minutes)
 
 # Enable logging
 logging.basicConfig(
@@ -29,12 +30,13 @@ def search(update: Update, context: CallbackContext) -> None:
 
     query = ' '.join(context.args)
     url = f'https://apis.justwatch.com/content/titles/en_US/popular?body={{"query":"{query}"}}'
-    response = requests.get(url)
 
-    # Check for a valid response
-    if response.status_code != 200:
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except requests.RequestException as e:
         update.message.reply_text('Error: Unable to fetch data from JustWatch.')
-        logger.error(f'JustWatch API error: {response.status_code} - {response.text}')
+        logger.error(f'JustWatch API request error: {e}')
         return
 
     try:
@@ -44,7 +46,7 @@ def search(update: Update, context: CallbackContext) -> None:
         logger.error(f'JSON decode error: {e} - Response text: {response.text}')
         return
 
-    if not data['items']:
+    if not data.get('items'):
         update.message.reply_text('No results found.')
         return
 
